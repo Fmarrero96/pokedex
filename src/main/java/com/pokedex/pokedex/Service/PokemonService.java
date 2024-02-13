@@ -3,39 +3,48 @@ package com.pokedex.pokedex.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pokedex.pokedex.Component.PokemonRestClient;
 import com.pokedex.pokedex.Model.PokemonDTO;
 import com.pokedex.pokedex.Model.PokemonDetailDto;
-import com.pokedex.pokedex.Model.Resource.FlavorText;
 import com.pokedex.pokedex.Model.Resource.pokemon.Pokemon;
 import com.pokedex.pokedex.Model.Resource.pokemon.PokemonAbility;
 import com.pokedex.pokedex.Model.Resource.pokemon.PokemonMove;
 import com.pokedex.pokedex.Model.Resource.pokemon.PokemonType;
-import com.pokedex.pokedex.Model.Resource.pokemonspecies.PokemonSpecies;
 import com.pokedex.pokedex.Model.ResponsePagePokedex;
 import com.pokedex.pokedex.Model.ResponsePokedexPokemon;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class PokemonService {
+    private static final String POKEMON_API_URL = "https://pokeapi.co/api/v2/pokemon/";
+    private static final String POKEMON_SPECIES_API_URL = "https://pokeapi.co/api/v2/pokemon-species/";
 
+    @Autowired
+    private final PokemonRestClient pokemonRestClient;
 
-    public List<PokemonDTO> getPokemonsDtoForResponsePokedex (ResponsePagePokedex responsePagePokedex) throws JsonProcessingException {
-        //obtengo los pokemons a listar
-        List<ResponsePokedexPokemon> responsePokedexPokemons = responsePagePokedex.getResults();
-        RestTemplate response = new RestTemplate();
-        //creo el arreglo donde se va a devolver el listado
+    @Autowired
+    public PokemonService(PokemonRestClient pokemonRestClient) {
+        this.pokemonRestClient = pokemonRestClient;
+    }
+
+    public List<PokemonDTO> getPokemonsDtoForResponsePokedex(ResponsePagePokedex responsePagePokedex) {
         List<PokemonDTO> pokemonDTOS = new ArrayList<>();
-        //recorro el listado de pokemon y los voy volviendo agregando al listado
-        for (ResponsePokedexPokemon pokedexPokemon : responsePokedexPokemons) {
-            Pokemon pokemon = response.getForEntity(pokedexPokemon.getUrl(), Pokemon.class).getBody();
-            // no me gusta obtener la url de la imagen asi, pero si no me lo trae en null en la Pokemon.class
-            //creo el pokemon DTO y lo agrego al listado de pokemons a devolver
-            pokemonDTOS.add(getPokemonDTO(pokemon,getUrlImage(pokedexPokemon.getUrl())));
+
+        try {
+            List<ResponsePokedexPokemon> responsePokedexPokemons = responsePagePokedex.getResults();
+
+            for (ResponsePokedexPokemon pokedexPokemon : responsePokedexPokemons) {
+                Pokemon pokemon = pokemonRestClient.fetchDataPokemon(pokedexPokemon.getUrl());
+                pokemonDTOS.add(getPokemonDTO(pokemon, getUrlImage(pokedexPokemon.getUrl())));
+            }
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
         }
+
         return pokemonDTOS;
     }
 
@@ -54,7 +63,7 @@ public class PokemonService {
     }
 
     //se le pasa un Pokemon y devuelve en una lista de string sus tipos
-    public List<String> getTypesName(Pokemon pokemon) {
+    private List<String> getTypesName(Pokemon pokemon) {
         List<PokemonType> pokemonTypes = pokemon.getTypes();
         List<String> nameTypes = new ArrayList<>();
         for (PokemonType tipo : pokemonTypes) {
@@ -64,7 +73,7 @@ public class PokemonService {
     }
 
     //se le pasa un Pokemon y devuelve en una lista de string cpm el nombre de sus habilidades
-    public List<String> getAbilities(Pokemon pokemon) {
+    private List<String> getAbilities(Pokemon pokemon) {
         List<PokemonAbility> pokemonAbilities = pokemon.getAbilities();
         List<String> nameAbilities = new ArrayList<>();
         for (PokemonAbility ability : pokemonAbilities) {
@@ -79,19 +88,22 @@ public class PokemonService {
     estar en la clase sprites pero al no definir las subclases no me lo toma
     refactorizar en un futuro!!
     */
-    public String getUrlImage(String url) throws JsonProcessingException {
-        RestTemplate response = new RestTemplate();
-        String jsonResponse = response.getForObject(url, String.class);
+    private String getUrlImage(String url) throws JsonProcessingException {
+        try {
+        String jsonResponse = pokemonRestClient.fetchData(url);
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode rootNode = objectMapper.readTree(jsonResponse);
         return rootNode.path("sprites").path("front_default").asText();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
 
     public PokemonDetailDto getPokemonDtoDetail(PokemonDTO pokemonDto) throws JsonProcessingException {
         //PokemonDetailDto hereda de PokemonDTO osea que tiene sus datos.
         //solamente se va a a agregar Detalle en espaniol y sus movimiento
-        RestTemplate response = new RestTemplate();
 
         PokemonDetailDto pokemonDetailDto = PokemonDetailDto.builder()
                 .name(pokemonDto.getName())
@@ -100,16 +112,16 @@ public class PokemonService {
                 .imageUrl(pokemonDto.getImageUrl())
                 .type(pokemonDto.getType())
                 .weight(pokemonDto.getWeight())
-                .description(getDescriptionPokemon(response,pokemonDto.getId()))
-                .moves(getPokemonMove(response,pokemonDto.getId()))
+                .description(getDescriptionPokemon(pokemonDto.getId()))
+                .moves(getPokemonMove(pokemonDto.getId()))
                 .build();
 
         return pokemonDetailDto;
     }
 
 
-    private List<String> getPokemonMove(RestTemplate response,Integer id){
-        Pokemon pokemon = response.getForEntity("https://pokeapi.co/api/v2/pokemon/" + id, Pokemon.class).getBody();
+    private List<String> getPokemonMove(Integer id){
+        Pokemon pokemon = pokemonRestClient.fetchDataPokemon(POKEMON_API_URL + id);
         List<PokemonMove> pokemonMoves = pokemon.getMoves();
         List<String> pokemonMove = new ArrayList<>();
         for (PokemonMove move : pokemonMoves) {
@@ -118,12 +130,18 @@ public class PokemonService {
         return pokemonMove;
     }
 
-    private String getDescriptionPokemon(RestTemplate response,Integer id) throws JsonProcessingException {
-        String jsonResponse = response.getForObject("https://pokeapi.co/api/v2/pokemon-species/" + id, String.class);
+    private String getDescriptionPokemon(Integer id) throws JsonProcessingException {
+        try {
+        String jsonResponse =  pokemonRestClient.fetchData(POKEMON_SPECIES_API_URL + id);
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(jsonResponse);
         JsonNode flavorTextEntries = jsonNode.get("flavor_text_entries");
         return findFlavorTextInSpanish(flavorTextEntries);
+        } catch (JsonProcessingException e) {
+            // Log or handle the exception as needed
+            e.printStackTrace();
+            return null; // Return a default value or handle the error accordingly
+        }
     }
 
     private static String findFlavorTextInSpanish(JsonNode flavorTextEntries) {

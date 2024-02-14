@@ -3,6 +3,7 @@ package com.pokedex.pokedex.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import com.pokedex.pokedex.Component.PokemonRestClient;
+import com.pokedex.pokedex.Exception.PokemonDataNotFoundException;
 import com.pokedex.pokedex.Model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,12 @@ public class PokedexService {
     }
 
     public ResponsePagePokedex getPaginatorPokemon(String offset,String limit){
-        return pokemonRestClient.fetchDataResponsePagePokedex(POKEMON_PAGE_API_URL+ "?offset=" +offset + "&limit=" + limit);
+        try {
+            return pokemonRestClient.fetchDataResponsePagePokedex(POKEMON_PAGE_API_URL + "?offset=" + offset + "&limit=" + limit);
+        } catch (PokemonDataNotFoundException e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     public PokedexDto getPokedexDto(String offset,String limit) throws JsonProcessingException {

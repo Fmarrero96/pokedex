@@ -1,6 +1,7 @@
 package com.pokedex.pokedex.Controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.pokedex.pokedex.Exception.PokemonDataNotFoundException;
 import com.pokedex.pokedex.Model.PokemonDTO;
 import com.pokedex.pokedex.Model.PokemonDetailDto;
 import com.pokedex.pokedex.Service.PokemonService;
@@ -31,11 +32,19 @@ public class PokemonController {
     @Operation(summary = "Retorna detalles mejorados de un Pokemon a partir de un PokemonDTO")
     @PostMapping("/pokemonDetail")
     public ResponseEntity<?> getPokemonDetailDTO(@RequestBody PokemonDTO pokemonDto) throws JsonProcessingException {
-        try{
+        try {
             PokemonDetailDto pokemonDetailDto = pokemonService.getPokemonDtoDetail(pokemonDto);
             return new ResponseEntity<>(pokemonDetailDto, HttpStatus.OK);
-        }catch (JsonProcessingException e){
-            return new ResponseEntity<>("Error al procesar JSON", HttpStatus.CONFLICT);
+        } catch (PokemonDataNotFoundException e) {
+            // Manejar la excepción específica de datos no encontrados
+            return new ResponseEntity<>("No se encontraron detalles del Pokémon", HttpStatus.NOT_FOUND);
+        } catch (JsonProcessingException e) {
+            // Manejar la excepción de procesamiento JSON
+            return new ResponseEntity<>("Error al procesar JSON", HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            // Manejar otras excepciones no previstas
+            e.printStackTrace();
+            return new ResponseEntity<>("Error interno del servidor", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pokedex.pokedex.Component.PokemonRestClient;
+import com.pokedex.pokedex.Exception.PokemonDataNotFoundException;
 import com.pokedex.pokedex.Model.PokemonDTO;
 import com.pokedex.pokedex.Model.PokemonDetailDto;
 import com.pokedex.pokedex.Model.Resource.pokemon.Pokemon;
@@ -38,8 +39,12 @@ public class PokemonService {
             List<ResponsePokedexPokemon> responsePokedexPokemons = responsePagePokedex.getResults();
 
             for (ResponsePokedexPokemon pokedexPokemon : responsePokedexPokemons) {
-                Pokemon pokemon = pokemonRestClient.fetchDataPokemon(pokedexPokemon.getUrl());
-                pokemonDTOS.add(getPokemonDTO(pokemon, getUrlImage(pokedexPokemon.getUrl())));
+                try {
+                    Pokemon pokemon = pokemonRestClient.fetchDataPokemon(pokedexPokemon.getUrl());
+                    pokemonDTOS.add(getPokemonDTO(pokemon, getUrlImage(pokedexPokemon.getUrl())));
+                } catch (PokemonDataNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
         } catch (JsonProcessingException e) {
             e.printStackTrace();
@@ -97,7 +102,10 @@ public class PokemonService {
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             throw e;
-        }
+        } catch (PokemonDataNotFoundException e) {
+            e.printStackTrace();
+            throw e;
+    }
     }
 
 
@@ -121,26 +129,33 @@ public class PokemonService {
 
 
     private List<String> getPokemonMove(Integer id){
-        Pokemon pokemon = pokemonRestClient.fetchDataPokemon(POKEMON_API_URL + id);
-        List<PokemonMove> pokemonMoves = pokemon.getMoves();
-        List<String> pokemonMove = new ArrayList<>();
-        for (PokemonMove move : pokemonMoves) {
-            pokemonMove.add(move.getMove().getName());
+        try {
+            Pokemon pokemon = pokemonRestClient.fetchDataPokemon(POKEMON_API_URL + id);
+            List<PokemonMove> pokemonMoves = pokemon.getMoves();
+            List<String> pokemonMove = new ArrayList<>();
+            for (PokemonMove move : pokemonMoves) {
+                pokemonMove.add(move.getMove().getName());
+            }
+            return pokemonMove;
+        } catch (PokemonDataNotFoundException e) {
+            e.printStackTrace();
+            throw e;
         }
-        return pokemonMove;
     }
 
     private String getDescriptionPokemon(Integer id) throws JsonProcessingException {
         try {
-        String jsonResponse =  pokemonRestClient.fetchData(POKEMON_SPECIES_API_URL + id);
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode jsonNode = objectMapper.readTree(jsonResponse);
-        JsonNode flavorTextEntries = jsonNode.get("flavor_text_entries");
-        return findFlavorTextInSpanish(flavorTextEntries);
-        } catch (JsonProcessingException e) {
-            // Log or handle the exception as needed
+            String jsonResponse = pokemonRestClient.fetchData(POKEMON_SPECIES_API_URL + id);
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonResponse);
+            JsonNode flavorTextEntries = jsonNode.get("flavor_text_entries");
+            return findFlavorTextInSpanish(flavorTextEntries);
+        } catch (PokemonDataNotFoundException e) {
             e.printStackTrace();
-            return null; // Return a default value or handle the error accordingly
+            throw e;
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            return null;
         }
     }
 

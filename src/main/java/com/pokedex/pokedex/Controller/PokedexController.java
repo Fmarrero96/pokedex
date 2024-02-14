@@ -7,6 +7,9 @@ import com.pokedex.pokedex.Model.PokemonDetailDto;
 import com.pokedex.pokedex.Service.PokedexService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +40,9 @@ public class PokedexController {
      */
     @Operation(summary = "Lista los Pokemons según un offset y un limit que se especifican")
     @GetMapping("/listOf")
+    @ApiResponse(responseCode = "200", description = "Éxito", content = @Content(mediaType = "application/json", schema = @Schema(implementation = PokedexDto.class)))
+    @ApiResponse(responseCode = "404", description = "No encontrado")
+    @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     public ResponseEntity<?> getPokedexDTO(@RequestParam(name = "offset") String offset,
                                     @RequestParam(name = "limit") String limit) throws JsonProcessingException {
         try {

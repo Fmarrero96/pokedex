@@ -6,6 +6,9 @@ import com.pokedex.pokedex.Model.PokemonDTO;
 import com.pokedex.pokedex.Model.PokemonDetailDto;
 import com.pokedex.pokedex.Service.PokemonService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +34,9 @@ public class PokemonController {
      */
     @Operation(summary = "Retorna detalles mejorados de un Pokemon a partir de un PokemonDTO")
     @PostMapping("/pokemonDetail")
+    @ApiResponse(responseCode = "200", description = "Éxito", content = @Content(mediaType = "application/json", schema = @Schema(implementation = PokemonDetailDto.class)))
+    @ApiResponse(responseCode = "404", description = "No encontrado")
+    @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     public ResponseEntity<?> getPokemonDetailDTO(@RequestBody PokemonDTO pokemonDto) throws JsonProcessingException {
         try {
             PokemonDetailDto pokemonDetailDto = pokemonService.getPokemonDtoDetail(pokemonDto);

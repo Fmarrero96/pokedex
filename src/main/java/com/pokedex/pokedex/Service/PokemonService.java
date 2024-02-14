@@ -67,6 +67,23 @@ public class PokemonService {
         return pokemonDto;
     }
 
+    public PokemonDetailDto getPokemonDtoDetail(PokemonDTO pokemonDto) throws JsonProcessingException {
+        //PokemonDetailDto hereda de PokemonDTO osea que tiene sus datos.
+        //solamente se va a a agregar Detalle en espaniol y sus movimiento
+
+        PokemonDetailDto pokemonDetailDto = PokemonDetailDto.builder()
+                .name(pokemonDto.getName())
+                .id(pokemonDto.getId())
+                .abilities(pokemonDto.getAbilities())
+                .imageUrl(pokemonDto.getImageUrl())
+                .type(pokemonDto.getType())
+                .weight(pokemonDto.getWeight())
+                .description(getDescriptionPokemon(pokemonDto.getId()))
+                .moves(getPokemonMove(pokemonDto.getId()))
+                .build();
+
+        return pokemonDetailDto;
+    }
     //se le pasa un Pokemon y devuelve en una lista de string sus tipos
     private List<String> getTypesName(Pokemon pokemon) {
         List<PokemonType> pokemonTypes = pokemon.getTypes();
@@ -95,39 +112,27 @@ public class PokemonService {
     */
     private String getUrlImage(String url) throws JsonProcessingException {
         try {
-        String jsonResponse = pokemonRestClient.fetchData(url);
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode rootNode = objectMapper.readTree(jsonResponse);
-        return rootNode.path("sprites").path("front_default").asText();
+            String jsonResponse = pokemonRestClient.fetchData(url);
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+
+            JsonNode spritesNode = rootNode.path("sprites");
+            if (spritesNode != null && spritesNode.has("front_default")) {
+                return spritesNode.path("front_default").asText();
+            } else {
+                // Manejar el caso donde "sprites" o "front_default" es nulo
+                return "No trae imagenes de Front"; // o lanzar una excepción
+            }
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             throw e;
         } catch (PokemonDataNotFoundException e) {
             e.printStackTrace();
             throw e;
-    }
-    }
-
-
-    public PokemonDetailDto getPokemonDtoDetail(PokemonDTO pokemonDto) throws JsonProcessingException {
-        //PokemonDetailDto hereda de PokemonDTO osea que tiene sus datos.
-        //solamente se va a a agregar Detalle en espaniol y sus movimiento
-
-        PokemonDetailDto pokemonDetailDto = PokemonDetailDto.builder()
-                .name(pokemonDto.getName())
-                .id(pokemonDto.getId())
-                .abilities(pokemonDto.getAbilities())
-                .imageUrl(pokemonDto.getImageUrl())
-                .type(pokemonDto.getType())
-                .weight(pokemonDto.getWeight())
-                .description(getDescriptionPokemon(pokemonDto.getId()))
-                .moves(getPokemonMove(pokemonDto.getId()))
-                .build();
-
-        return pokemonDetailDto;
+        }
     }
 
-
+    //se obtienen los movientos del id del pokemon enviado
     private List<String> getPokemonMove(Integer id){
         try {
             Pokemon pokemon = pokemonRestClient.fetchDataPokemon(POKEMON_API_URL + id);
@@ -143,6 +148,7 @@ public class PokemonService {
         }
     }
 
+    //se obtiene la descripcion del ID del pokemon enviado
     private String getDescriptionPokemon(Integer id) throws JsonProcessingException {
         try {
             String jsonResponse = pokemonRestClient.fetchData(POKEMON_SPECIES_API_URL + id);
@@ -159,11 +165,14 @@ public class PokemonService {
         }
     }
 
+    //se busca si tiene texto en spanish.
     private static String findFlavorTextInSpanish(JsonNode flavorTextEntries) {
         for (JsonNode entry : flavorTextEntries) {
             JsonNode language = entry.path("language");
-            if (language.isObject() && "es".equals(language.path("name").asText())) {
-                return entry.path("flavor_text").asText();
+            JsonNode flavorText = entry.path("flavor_text");
+
+            if (language.isObject() && "es".equals(language.path("name").asText()) && flavorText.isTextual()) {
+                return flavorText.asText();
             }
         }
         return null; // Si no se encuentra ningún flavor_text en español
